@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatosSolicitud, Responsable } from '../dominio/datos';
 import { ErrorDeNegocio } from '../dominio/errores';
+import { CondicionesDeAtencion, FiltroSolicitudes, PedidoDeSolicitud } from '../dominio/parametros';
 import { Solicitud } from '../dominio/solicitud';
 import { DirectorioEstudiantes, DirectorioResponsables } from '../puertos/directorios';
 import { Reloj } from '../puertos/reloj';
@@ -16,37 +17,24 @@ export class SolicitudesService {
     private readonly reloj: Reloj,
   ) {}
 
-  buscar(q: any): DatosSolicitud[] {
-    let res = this.solicitudes.todas();
-    if (q.estado) res = res.filter((s) => s.estado == q.estado);
-    if (q.tipo) res = res.filter((s) => s.tipo == q.tipo);
-    if (q.responsableId) res = res.filter((s) => s.responsableId == q.responsableId);
-    if (q.estudianteId) res = res.filter((s) => s.estudianteId == q.estudianteId);
-    if (q.texto)
-      res = res.filter(
-        (s) => s.descripcion.toLowerCase().indexOf(q.texto.toLowerCase()) >= 0,
-      );
-    return res;
+  buscar(filtro: FiltroSolicitudes): DatosSolicitud[] {
+    return this.solicitudes
+      .todas()
+      .filter((datos) => Solicitud.desde(datos).coincideCon(filtro));
   }
 
   obtener(id: number): DatosSolicitud {
     return this.cargar(id).aDatos();
   }
 
-  registrar(b: any): DatosSolicitud {
-    this.validarDatosDeRegistro(b);
-    this.verificarQueElEstudiantePuedaIniciarlo(Number(b.estudianteId), b.tipo);
+  registrar(pedido: PedidoDeSolicitud): DatosSolicitud {
+    this.validarPedido(pedido);
+    this.verificarQueElEstudiantePuedaIniciarlo(pedido.estudianteId, pedido.tipo);
 
-    const hoy = this.reloj.ahora();
     const solicitud = Solicitud.crear(
       this.solicitudes.siguienteId(),
-      b.estudianteId,
-      b.tipo,
-      b.descripcion.trim(),
-      this.calcularPrioridad(b.tipo, b.urgente == true),
-      hoy.toISOString(),
-      new Date(hoy.getTime() + this.plazoEnDias(b.tipo) * 86400000).toISOString(),
-      b.canal || 'WEB',
+      pedido,
+      this.condicionesDeAtencion(pedido),
     );
     return this.guardar(solicitud);
   }
@@ -81,18 +69,27 @@ export class SolicitudesService {
     return datos;
   }
 
-  private validarDatosDeRegistro(b: any): void {
-    if (!b.estudianteId) throw new ErrorDeNegocio('Falta el estudiante');
-    if (!b.tipo) throw new ErrorDeNegocio('Falta el tipo');
+  private validarPedido(pedido: PedidoDeSolicitud): void {
+    if (pedido.estudianteId === undefined) throw new ErrorDeNegocio('Falta el estudiante');
+    if (!pedido.tipo) throw new ErrorDeNegocio('Falta el tipo');
     if (
-      b.tipo != 'CERTIFICADO' &&
-      b.tipo != 'EQUIVALENCIA' &&
-      b.tipo != 'CAMBIO_COMISION' &&
-      b.tipo != 'RECLAMO_NOTA'
+      pedido.tipo != 'CERTIFICADO' &&
+      pedido.tipo != 'EQUIVALENCIA' &&
+      pedido.tipo != 'CAMBIO_COMISION' &&
+      pedido.tipo != 'RECLAMO_NOTA'
     )
       throw new ErrorDeNegocio('Tipo invalido');
-    if (!b.descripcion || b.descripcion.trim().length < 10)
+    if (!pedido.descripcion || pedido.descripcion.trim().length < 10)
       throw new ErrorDeNegocio('La descripcion debe tener al menos 10 caracteres');
+  }
+
+  private condicionesDeAtencion(pedido: PedidoDeSolicitud): CondicionesDeAtencion {
+    const fechaAlta = this.reloj.ahora();
+    return {
+      prioridad: this.calcularPrioridad(pedido.tipo, pedido.urgente),
+      fechaAlta,
+      fechaLimite: new Date(fechaAlta.getTime() + this.plazoEnDias(pedido.tipo) * 86400000),
+    };
   }
 
   private verificarQueElEstudiantePuedaIniciarlo(estudianteId: number, tipo: string): void {

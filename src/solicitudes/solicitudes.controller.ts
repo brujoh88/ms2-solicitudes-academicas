@@ -13,7 +13,13 @@ export class SolicitudesController {
 
   @Get()
   listar(@Query() q: any) {
-    return this.servicio.buscar(q);
+    return this.servicio.buscar({
+      estado: q.estado,
+      tipo: q.tipo,
+      responsableId: q.responsableId ? Number(q.responsableId) : undefined,
+      estudianteId: q.estudianteId ? Number(q.estudianteId) : undefined,
+      texto: q.texto,
+    });
   }
 
   @Get('reporte')
@@ -28,7 +34,15 @@ export class SolicitudesController {
 
   @Post()
   registrar(@Body() b: any) {
-    return this.responder(() => this.servicio.registrar(b));
+    return this.responder(() =>
+      this.servicio.registrar({
+        estudianteId: b.estudianteId ? Number(b.estudianteId) : undefined,
+        tipo: b.tipo,
+        descripcion: b.descripcion,
+        urgente: b.urgente == true,
+        canal: b.canal,
+      }),
+    );
   }
 
   @Put(':id/responsable')

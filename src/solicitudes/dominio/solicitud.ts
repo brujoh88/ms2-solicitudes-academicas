@@ -1,5 +1,6 @@
 import { DatosSolicitud } from './datos';
 import { ErrorDeNegocio } from './errores';
+import { CondicionesDeAtencion, FiltroSolicitudes, PedidoDeSolicitud } from './parametros';
 
 /**
  * Una solicitud con su comportamiento. Lo que antes calculaba el controlador
@@ -13,20 +14,37 @@ export class Solicitud {
     return new Solicitud(structuredClone(datos));
   }
 
-  static crear(id, estudianteId, tipo, descripcion, prioridad, fechaAlta, fechaLimite, canal) {
+  static crear(
+    id: number,
+    pedido: PedidoDeSolicitud,
+    condiciones: CondicionesDeAtencion,
+  ): Solicitud {
+    const fechaAlta = condiciones.fechaAlta.toISOString();
     return new Solicitud({
-      id: id,
-      estudianteId: Number(estudianteId),
-      tipo: tipo,
-      descripcion: descripcion,
-      prioridad: prioridad,
+      id,
+      estudianteId: pedido.estudianteId,
+      tipo: pedido.tipo,
+      descripcion: pedido.descripcion.trim(),
+      prioridad: condiciones.prioridad,
       estado: 'PENDIENTE',
       responsableId: null,
-      fechaAlta: fechaAlta,
-      fechaLimite: fechaLimite,
-      canal: canal,
+      fechaAlta,
+      fechaLimite: condiciones.fechaLimite.toISOString(),
+      canal: pedido.canal || 'WEB',
       historial: [{ estado: 'PENDIENTE', fecha: fechaAlta }],
     });
+  }
+
+  /** Indica si la solicitud cumple todos los criterios del filtro. */
+  coincideCon(filtro: FiltroSolicitudes): boolean {
+    const d = this.datos;
+    return (
+      (!filtro.estado || d.estado === filtro.estado) &&
+      (!filtro.tipo || d.tipo === filtro.tipo) &&
+      (filtro.responsableId === undefined || d.responsableId === filtro.responsableId) &&
+      (filtro.estudianteId === undefined || d.estudianteId === filtro.estudianteId) &&
+      (!filtro.texto || d.descripcion.toLowerCase().includes(filtro.texto.toLowerCase()))
+    );
   }
 
   get id(): number {

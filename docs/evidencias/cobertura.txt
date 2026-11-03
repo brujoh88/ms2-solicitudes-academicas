@@ -2,27 +2,27 @@
 ---------------------------------|---------|----------|---------|---------|-------------------
 File                             | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
 ---------------------------------|---------|----------|---------|---------|-------------------
-All files                        |     100 |    97.64 |     100 |     100 |                   
+All files                        |   99.32 |     97.8 |   97.67 |   99.59 |                   
  src                             |     100 |      100 |     100 |     100 |                   
   app.module.ts                  |     100 |      100 |     100 |     100 |                   
- src/solicitudes                 |     100 |     87.5 |     100 |     100 |                   
+ src/solicitudes                 |     100 |       90 |     100 |     100 |                   
   errores-de-negocio.filter.ts   |     100 |      100 |     100 |     100 |                   
   solicitudes.controller.ts      |     100 |    83.33 |     100 |     100 | 22                
   solicitudes.module.ts          |     100 |      100 |     100 |     100 |                   
  src/solicitudes/aplicacion      |     100 |      100 |     100 |     100 |                   
   reporte.service.ts             |     100 |      100 |     100 |     100 |                   
   solicitudes.service.ts         |     100 |      100 |     100 |     100 |                   
- src/solicitudes/dominio         |     100 |     97.5 |     100 |     100 |                   
+ src/solicitudes/dominio         |     100 |    97.61 |     100 |     100 |                   
   errores.ts                     |     100 |      100 |     100 |     100 |                   
   estado.ts                      |     100 |      100 |     100 |     100 |                   
   prioridad.ts                   |     100 |      100 |     100 |     100 |                   
   reglas.ts                      |     100 |      100 |     100 |     100 |                   
-  solicitud.ts                   |     100 |    96.66 |     100 |     100 | 60                
+  solicitud.ts                   |     100 |    96.87 |     100 |     100 | 71                
   tipo-solicitud.ts              |     100 |      100 |     100 |     100 |                   
- src/solicitudes/infraestructura |     100 |      100 |     100 |     100 |                   
+ src/solicitudes/infraestructura |   96.42 |      100 |   89.47 |   97.43 |                   
   archivo-json.ts                |     100 |      100 |     100 |     100 |                   
-  directorio-datos.ts            |     100 |      100 |     100 |     100 |                   
-  reloj-del-sistema.ts           |     100 |      100 |     100 |     100 |                   
+  directorio-datos.ts            |      80 |      100 |       0 |     100 |                   
+  reloj-del-sistema.ts           |   83.33 |      100 |       0 |      75 | 7                 
   repositorios-json.ts           |     100 |      100 |     100 |     100 |                   
  src/solicitudes/puertos         |     100 |      100 |     100 |     100 |                   
   directorios.ts                 |     100 |      100 |     100 |     100 |                   
@@ -30,13 +30,13 @@ All files                        |     100 |    97.64 |     100 |     100 |
   repositorio-solicitudes.ts     |     100 |      100 |     100 |     100 |                   
 ---------------------------------|---------|----------|---------|---------|-------------------
 =============================== Coverage summary ===============================
-Statements   : 100% ( 287/287 )
-Branches     : 97.64% ( 83/85 )
-Functions    : 100% ( 84/84 )
-Lines        : 100% ( 237/237 )
+Statements   : 99.32% ( 295/297 )
+Branches     : 97.8% ( 89/91 )
+Functions    : 97.67% ( 84/86 )
+Lines        : 99.59% ( 243/244 )
 ================================================================================
-Test Suites: 4 passed, 4 total
-Tests:       83 passed, 83 total
+Test Suites: 5 passed, 5 total
+Tests:       88 passed, 88 total
 Snapshots:   0 total
-Time:        3.434 s
+Time:        2.321 s
 Ran all test suites.

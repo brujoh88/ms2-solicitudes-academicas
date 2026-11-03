@@ -1,254 +1,56 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
-import { DirectorioEstudiantes, DirectorioResponsables } from './puertos/directorios';
-import { Reloj } from './puertos/reloj';
-import { RepositorioSolicitudes } from './puertos/repositorio-solicitudes';
+import { ReporteService } from './aplicacion/reporte.service';
+import { SolicitudesService } from './aplicacion/solicitudes.service';
+import { ErrorDeNegocio } from './dominio/errores';
 
-// Controlador de solicitudes academicas
+/** Traduce HTTP a casos de uso. No tiene reglas de negocio ni persistencia. */
 @Controller('solicitudes')
 export class SolicitudesController {
   constructor(
-    private readonly solicitudes: RepositorioSolicitudes,
-    private readonly estudiantes: DirectorioEstudiantes,
-    private readonly responsables: DirectorioResponsables,
-    private readonly reloj: Reloj,
+    private readonly servicio: SolicitudesService,
+    private readonly reportes: ReporteService,
   ) {}
 
-  // listar solicitudes con filtros
   @Get()
   listar(@Query() q: any) {
-    let res: any[] = this.solicitudes.todas();
-    if (q.estado) res = res.filter((s) => s.estado == q.estado);
-    if (q.tipo) res = res.filter((s) => s.tipo == q.tipo);
-    if (q.responsableId) res = res.filter((s) => s.responsableId == q.responsableId);
-    if (q.estudianteId) res = res.filter((s) => s.estudianteId == q.estudianteId);
-    if (q.texto)
-      res = res.filter(
-        (s) => s.descripcion.toLowerCase().indexOf(q.texto.toLowerCase()) >= 0,
-      );
-    return res;
+    return this.servicio.buscar(q);
   }
 
-  // reporte basico
   @Get('reporte')
   reporte() {
-    const data = this.solicitudes.todas();
-    const r: any = {
-      total: data.length,
-      porEstado: { PENDIENTE: 0, EN_REVISION: 0, RESUELTA: 0, RECHAZADA: 0 },
-      porTipo: { CERTIFICADO: 0, EQUIVALENCIA: 0, CAMBIO_COMISION: 0, RECLAMO_NOTA: 0 },
-      vencidas: [],
-      promedioDiasResolucion: null,
-    };
-    let sum = 0;
-    let n = 0;
-    for (let i = 0; i < data.length; i++) {
-      const s = data[i];
-      r.porEstado[s.estado]++;
-      r.porTipo[s.tipo]++;
-      if (
-        s.estado != 'RESUELTA' &&
-        s.estado != 'RECHAZADA' &&
-        new Date(s.fechaLimite).getTime() < this.reloj.ahora().getTime()
-      ) {
-        r.vencidas.push(s.id);
-      }
-      if (s.estado == 'RESUELTA') {
-        // buscar la fecha en que se resolvio
-        for (let j = 0; j < s.historial.length; j++) {
-          if (s.historial[j].estado == 'RESUELTA') {
-            const d =
-              (new Date(s.historial[j].fecha).getTime() - new Date(s.fechaAlta).getTime()) /
-              86400000;
-            sum = sum + d;
-            n++;
-          }
-        }
-      }
-    }
-    if (n > 0) r.promedioDiasResolucion = Math.round((sum / n) * 10) / 10;
-    return r;
+    return this.reportes.generar();
   }
 
   @Get(':id')
   uno(@Param('id') id: string) {
-    const s = this.solicitudes.buscarPorId(Number(id));
-    if (!s) return { error: 'No existe la solicitud' };
-    return s;
+    return this.responder(() => this.servicio.obtener(Number(id)));
   }
 
-  // registrar una solicitud nueva
   @Post()
   registrar(@Body() b: any) {
-    // validaciones
-    if (!b.estudianteId) return { error: 'Falta el estudiante' };
-    if (!b.tipo) return { error: 'Falta el tipo' };
-    if (
-      b.tipo != 'CERTIFICADO' &&
-      b.tipo != 'EQUIVALENCIA' &&
-      b.tipo != 'CAMBIO_COMISION' &&
-      b.tipo != 'RECLAMO_NOTA'
-    )
-      return { error: 'Tipo invalido' };
-    if (!b.descripcion || b.descripcion.trim().length < 10)
-      return { error: 'La descripcion debe tener al menos 10 caracteres' };
-
-    // el estudiante tiene que existir
-    const est = this.estudiantes.buscarPorId(Number(b.estudianteId));
-    if (!est) return { error: 'El estudiante no existe' };
-    // los libres solo pueden reclamar notas
-    if (est.condicion != 'REGULAR' && b.tipo != 'RECLAMO_NOTA')
-      return { error: 'Solo los estudiantes regulares pueden iniciar este tramite' };
-
-    // prioridad segun el tipo
-    let p;
-    switch (b.tipo) {
-      case 'RECLAMO_NOTA':
-        p = 'ALTA';
-        break;
-      case 'CAMBIO_COMISION':
-        p = 'ALTA';
-        break;
-      case 'EQUIVALENCIA':
-        p = 'MEDIA';
-        break;
-      default:
-        p = 'BAJA';
-    }
-    // si es urgente sube un nivel
-    if (b.urgente == true) {
-      if (p == 'BAJA') p = 'MEDIA';
-      else if (p == 'MEDIA') p = 'ALTA';
-    }
-
-    // plazo en dias segun el tipo
-    let dias;
-    switch (b.tipo) {
-      case 'RECLAMO_NOTA':
-        dias = 5;
-        break;
-      case 'CAMBIO_COMISION':
-        dias = 3;
-        break;
-      case 'EQUIVALENCIA':
-        dias = 20;
-        break;
-      case 'CERTIFICADO':
-        dias = 2;
-        break;
-    }
-
-    const hoy = this.reloj.ahora();
-    const s = this.crear(
-      this.solicitudes.siguienteId(),
-      b.estudianteId,
-      b.tipo,
-      b.descripcion.trim(),
-      p,
-      hoy.toISOString(),
-      new Date(hoy.getTime() + dias * 86400000).toISOString(),
-      b.canal || 'WEB',
-    );
-    this.solicitudes.guardar(s);
-    return s;
+    return this.responder(() => this.servicio.registrar(b));
   }
 
-  crear(id, estudianteId, tipo, descripcion, prioridad, fechaAlta, fechaLimite, canal) {
-    return {
-      id: id,
-      estudianteId: Number(estudianteId),
-      tipo: tipo,
-      descripcion: descripcion,
-      prioridad: prioridad,
-      estado: 'PENDIENTE',
-      responsableId: null,
-      fechaAlta: fechaAlta,
-      fechaLimite: fechaLimite,
-      canal: canal,
-      historial: [{ estado: 'PENDIENTE', fecha: fechaAlta }],
-    };
-  }
-
-  // asignar un responsable
   @Put(':id/responsable')
   asignar(@Param('id') id: string, @Body() b: any) {
-    const s = this.solicitudes.buscarPorId(Number(id));
-    if (!s) return { error: 'No existe la solicitud' };
-    if (s.estado == 'RESUELTA' || s.estado == 'RECHAZADA')
-      return { error: 'La solicitud ya esta cerrada' };
-
-    const r = this.responsables.buscarPorId(Number(b.responsableId));
-    if (!r) return { error: 'El responsable no existe' };
-    if (!r.activo) return { error: 'El responsable no esta activo' };
-
-    // cada tipo lo atiende un area
-    let area;
-    switch (s.tipo) {
-      case 'CERTIFICADO':
-        area = 'BEDELIA';
-        break;
-      case 'CAMBIO_COMISION':
-        area = 'BEDELIA';
-        break;
-      case 'EQUIVALENCIA':
-        area = 'DEPARTAMENTO_ACADEMICO';
-        break;
-      case 'RECLAMO_NOTA':
-        area = 'DEPARTAMENTO_ACADEMICO';
-        break;
-    }
-    if (r.area != area) return { error: 'El responsable no pertenece al area que atiende este tipo' };
-
-    // no mas de 5 abiertas por responsable
-    const data = this.solicitudes.todas();
-    let c = 0;
-    for (let i = 0; i < data.length; i++) {
-      if (
-        data[i].responsableId == r.id &&
-        (data[i].estado == 'PENDIENTE' || data[i].estado == 'EN_REVISION') &&
-        data[i].id != s.id
-      )
-        c++;
-    }
-    if (c >= 5) return { error: 'El responsable ya tiene 5 solicitudes abiertas' };
-
-    s.responsableId = r.id;
-    this.solicitudes.guardar(s);
-    return s;
+    return this.responder(() =>
+      this.servicio.asignarResponsable(Number(id), Number(b.responsableId)),
+    );
   }
 
-  // cambiar el estado
   @Put(':id/estado')
   cambiarEstado(@Param('id') id: string, @Body() b: any) {
-    const s = this.solicitudes.buscarPorId(Number(id));
-    if (!s) return { error: 'No existe la solicitud' };
-    const nuevo = b.estado;
-    let ok = false;
-    if (s.estado == 'PENDIENTE') {
-      if (nuevo == 'EN_REVISION') {
-        if (s.responsableId == null)
-          return { error: 'No se puede revisar una solicitud sin responsable' };
-        ok = true;
-      } else if (nuevo == 'RECHAZADA') {
-        if (!b.motivo || b.motivo.trim().length < 10)
-          return { error: 'Para rechazar hay que indicar un motivo de al menos 10 caracteres' };
-        ok = true;
-      }
-    } else if (s.estado == 'EN_REVISION') {
-      if (nuevo == 'RESUELTA') {
-        ok = true;
-      } else if (nuevo == 'RECHAZADA') {
-        if (!b.motivo || b.motivo.trim().length < 10)
-          return { error: 'Para rechazar hay que indicar un motivo de al menos 10 caracteres' };
-        ok = true;
-      }
-    }
-    if (!ok) return { error: 'No se puede pasar de ' + s.estado + ' a ' + nuevo };
+    return this.responder(() => this.servicio.cambiarEstado(Number(id), b.estado, b.motivo));
+  }
 
-    s.estado = nuevo;
-    const h: any = { estado: nuevo, fecha: this.reloj.ahora().toISOString() };
-    if (b.motivo) h.motivo = b.motivo.trim();
-    s.historial.push(h);
-    this.solicitudes.guardar(s);
-    return s;
+  // Mantiene el comportamiento de la version inicial: el error va en el cuerpo
+  // con el codigo de exito de la ruta.
+  private responder<T>(accion: () => T): T | { error: string } {
+    try {
+      return accion();
+    } catch (e) {
+      if (e instanceof ErrorDeNegocio) return { error: e.message };
+      throw e;
+    }
   }
 }

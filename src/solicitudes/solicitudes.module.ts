@@ -9,11 +9,15 @@ import {
 import { DirectorioEstudiantes, DirectorioResponsables } from './puertos/directorios';
 import { Reloj } from './puertos/reloj';
 import { LectorSolicitudes, RepositorioSolicitudes } from './puertos/repositorio-solicitudes';
+import { ReporteService } from './aplicacion/reporte.service';
+import { SolicitudesService } from './aplicacion/solicitudes.service';
 import { SolicitudesController } from './solicitudes.controller';
 
 @Module({
   controllers: [SolicitudesController],
   providers: [
+    SolicitudesService,
+    ReporteService,
     { provide: DIRECTORIO_DATOS, useFactory: directorioDatosPorDefecto },
     { provide: RepositorioSolicitudes, useClass: RepositorioSolicitudesJson },
     { provide: LectorSolicitudes, useExisting: RepositorioSolicitudes },

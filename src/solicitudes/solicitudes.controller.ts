@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, UseFilters } from '@nestjs/common';
 import { ReporteService } from './aplicacion/reporte.service';
 import { SolicitudesService } from './aplicacion/solicitudes.service';
-import { ErrorDeNegocio } from './dominio/errores';
+import { Estado } from './dominio/estado';
+import { ErroresDeNegocioFilter } from './errores-de-negocio.filter';
 
 /** Traduce HTTP a casos de uso. No tiene reglas de negocio ni persistencia. */
 @Controller('solicitudes')
+@UseFilters(ErroresDeNegocioFilter)
 export class SolicitudesController {
   constructor(
     private readonly servicio: SolicitudesService,
@@ -12,13 +14,13 @@ export class SolicitudesController {
   ) {}
 
   @Get()
-  listar(@Query() q: any) {
+  listar(@Query() consulta: Record<string, string>) {
     return this.servicio.buscar({
-      estado: q.estado,
-      tipo: q.tipo,
-      responsableId: q.responsableId ? Number(q.responsableId) : undefined,
-      estudianteId: q.estudianteId ? Number(q.estudianteId) : undefined,
-      texto: q.texto,
+      estado: consulta.estado as Estado,
+      tipo: consulta.tipo,
+      responsableId: consulta.responsableId ? Number(consulta.responsableId) : undefined,
+      estudianteId: consulta.estudianteId ? Number(consulta.estudianteId) : undefined,
+      texto: consulta.texto,
     });
   }
 
@@ -28,43 +30,28 @@ export class SolicitudesController {
   }
 
   @Get(':id')
-  uno(@Param('id') id: string) {
-    return this.responder(() => this.servicio.obtener(Number(id)));
+  obtener(@Param('id') id: string) {
+    return this.servicio.obtener(Number(id));
   }
 
   @Post()
-  registrar(@Body() b: any) {
-    return this.responder(() =>
-      this.servicio.registrar({
-        estudianteId: b.estudianteId ? Number(b.estudianteId) : undefined,
-        tipo: b.tipo,
-        descripcion: b.descripcion,
-        urgente: b.urgente == true,
-        canal: b.canal,
-      }),
-    );
+  registrar(@Body() cuerpo: any) {
+    return this.servicio.registrar({
+      estudianteId: cuerpo.estudianteId ? Number(cuerpo.estudianteId) : undefined,
+      tipo: cuerpo.tipo,
+      descripcion: cuerpo.descripcion,
+      urgente: cuerpo.urgente == true,
+      canal: cuerpo.canal,
+    });
   }
 
   @Put(':id/responsable')
-  asignar(@Param('id') id: string, @Body() b: any) {
-    return this.responder(() =>
-      this.servicio.asignarResponsable(Number(id), Number(b.responsableId)),
-    );
+  asignarResponsable(@Param('id') id: string, @Body() cuerpo: { responsableId: unknown }) {
+    return this.servicio.asignarResponsable(Number(id), Number(cuerpo.responsableId));
   }
 
   @Put(':id/estado')
-  cambiarEstado(@Param('id') id: string, @Body() b: any) {
-    return this.responder(() => this.servicio.cambiarEstado(Number(id), b.estado, b.motivo));
-  }
-
-  // Mantiene el comportamiento de la version inicial: el error va en el cuerpo
-  // con el codigo de exito de la ruta.
-  private responder<T>(accion: () => T): T | { error: string } {
-    try {
-      return accion();
-    } catch (e) {
-      if (e instanceof ErrorDeNegocio) return { error: e.message };
-      throw e;
-    }
+  cambiarEstado(@Param('id') id: string, @Body() cuerpo: { estado: string; motivo?: string }) {
+    return this.servicio.cambiarEstado(Number(id), cuerpo.estado, cuerpo.motivo);
   }
 }

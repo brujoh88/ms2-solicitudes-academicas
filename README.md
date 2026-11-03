@@ -73,7 +73,7 @@ restaura.
 ## Pruebas
 
 ```bash
-npm test                          # 88 pruebas
+npm test                          # 90 pruebas
 npm run test:cov                  # con cobertura (100 % de líneas)
 scripts/comparar-versiones.sh     # los mismos tests sobre la versión inicial y la refactorizada
 ```

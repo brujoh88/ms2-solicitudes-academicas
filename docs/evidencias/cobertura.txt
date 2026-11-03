@@ -2,7 +2,7 @@
 ---------------------------------|---------|----------|---------|---------|-------------------
 File                             | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
 ---------------------------------|---------|----------|---------|---------|-------------------
-All files                        |   99.32 |     97.8 |   97.67 |   99.59 |                   
+All files                        |     100 |     97.8 |     100 |     100 |                   
  src                             |     100 |      100 |     100 |     100 |                   
   app.module.ts                  |     100 |      100 |     100 |     100 |                   
  src/solicitudes                 |     100 |       90 |     100 |     100 |                   
@@ -19,10 +19,10 @@ All files                        |   99.32 |     97.8 |   97.67 |   99.59 |
   reglas.ts                      |     100 |      100 |     100 |     100 |                   
   solicitud.ts                   |     100 |    96.87 |     100 |     100 | 71                
   tipo-solicitud.ts              |     100 |      100 |     100 |     100 |                   
- src/solicitudes/infraestructura |   96.42 |      100 |   89.47 |   97.43 |                   
+ src/solicitudes/infraestructura |     100 |      100 |     100 |     100 |                   
   archivo-json.ts                |     100 |      100 |     100 |     100 |                   
-  directorio-datos.ts            |      80 |      100 |       0 |     100 |                   
-  reloj-del-sistema.ts           |   83.33 |      100 |       0 |      75 | 7                 
+  directorio-datos.ts            |     100 |      100 |     100 |     100 |                   
+  reloj-del-sistema.ts           |     100 |      100 |     100 |     100 |                   
   repositorios-json.ts           |     100 |      100 |     100 |     100 |                   
  src/solicitudes/puertos         |     100 |      100 |     100 |     100 |                   
   directorios.ts                 |     100 |      100 |     100 |     100 |                   
@@ -30,13 +30,13 @@ All files                        |   99.32 |     97.8 |   97.67 |   99.59 |
   repositorio-solicitudes.ts     |     100 |      100 |     100 |     100 |                   
 ---------------------------------|---------|----------|---------|---------|-------------------
 =============================== Coverage summary ===============================
-Statements   : 99.32% ( 295/297 )
+Statements   : 100% ( 297/297 )
 Branches     : 97.8% ( 89/91 )
-Functions    : 97.67% ( 84/86 )
-Lines        : 99.59% ( 243/244 )
+Functions    : 100% ( 86/86 )
+Lines        : 100% ( 244/244 )
 ================================================================================
 Test Suites: 5 passed, 5 total
-Tests:       88 passed, 88 total
+Tests:       90 passed, 90 total
 Snapshots:   0 total
-Time:        2.321 s
+Time:        2.003 s, estimated 3 s
 Ran all test suites.

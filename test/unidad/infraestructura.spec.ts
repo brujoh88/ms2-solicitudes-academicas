@@ -3,6 +3,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { ArchivoJson } from '../../src/solicitudes/infraestructura/archivo-json';
 import { RepositorioSolicitudesJson } from '../../src/solicitudes/infraestructura/repositorios-json';
+import { directorioDatosPorDefecto } from '../../src/solicitudes/infraestructura/directorio-datos';
+import { RelojDelSistema } from '../../src/solicitudes/infraestructura/reloj-del-sistema';
 import { solicitud } from '../dobles/en-memoria';
 
 // Ahora la carpeta de datos se inyecta: estas pruebas usan una carpeta temporal
@@ -35,5 +37,20 @@ describe('RepositorioSolicitudesJson', () => {
     expect(otraInstancia.todas()).toHaveLength(1);
     expect(otraInstancia.buscarPorId(1).responsableId).toBe(10);
     expect(otraInstancia.siguienteId()).toBe(2);
+  });
+});
+
+describe('Implementaciones por defecto', () => {
+  // Los tests extremo a extremo las reemplazan por dobles; estas pruebas
+  // verifican las que usa la aplicacion real.
+  it('el reloj del sistema devuelve la hora actual', () => {
+    const antes = Date.now();
+    const ahora = new RelojDelSistema().ahora().getTime();
+    expect(ahora).toBeGreaterThanOrEqual(antes);
+    expect(ahora).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('la carpeta de datos por defecto es ./data', () => {
+    expect(directorioDatosPorDefecto()).toBe(path.join(process.cwd(), 'data'));
   });
 });

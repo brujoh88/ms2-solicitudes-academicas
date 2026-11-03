@@ -1,0 +1,7 @@
+# Salida de scripts/comparar-versiones.sh (2026-11-03)
+== antes: estado-inicial (d0d836a)
+Test Suites: 1 passed, 1 total
+Tests:       43 passed, 43 total
+== despues: HEAD (c0d01b2)
+Test Suites: 1 passed, 1 total
+Tests:       43 passed, 43 total

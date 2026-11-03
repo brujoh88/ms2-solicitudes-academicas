@@ -1,0 +1,7 @@
+[
+  { "id": 1, "nombre": "Lucía Fernández", "legajo": "TUP-1001", "condicion": "REGULAR" },
+  { "id": 2, "nombre": "Martín Gómez", "legajo": "TUP-1002", "condicion": "REGULAR" },
+  { "id": 3, "nombre": "Sofía Ramírez", "legajo": "TUP-1003", "condicion": "LIBRE" },
+  { "id": 4, "nombre": "Tomás Herrera", "legajo": "TUP-1004", "condicion": "REGULAR" },
+  { "id": 5, "nombre": "Valentina Ruiz", "legajo": "TUP-1005", "condicion": "REGULAR" }
+]

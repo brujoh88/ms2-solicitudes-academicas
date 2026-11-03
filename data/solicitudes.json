@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1, "estudianteId": 1, "tipo": "CERTIFICADO", "descripcion": "Certificado de alumno regular para presentar en el trabajo",
+    "prioridad": "BAJA", "estado": "RESUELTA", "responsableId": 1,
+    "fechaAlta": "2026-10-01T13:00:00.000Z", "fechaLimite": "2026-10-03T13:00:00.000Z", "canal": "WEB",
+    "historial": [
+      { "estado": "PENDIENTE", "fecha": "2026-10-01T13:00:00.000Z" },
+      { "estado": "EN_REVISION", "fecha": "2026-10-01T15:00:00.000Z" },
+      { "estado": "RESUELTA", "fecha": "2026-10-02T13:00:00.000Z" }
+    ]
+  },
+  {
+    "id": 2, "estudianteId": 2, "tipo": "EQUIVALENCIA", "descripcion": "Equivalencia de Programación 1 aprobada en otra universidad",
+    "prioridad": "MEDIA", "estado": "EN_REVISION", "responsableId": 3,
+    "fechaAlta": "2026-10-05T12:00:00.000Z", "fechaLimite": "2026-10-25T12:00:00.000Z", "canal": "WEB",
+    "historial": [
+      { "estado": "PENDIENTE", "fecha": "2026-10-05T12:00:00.000Z" },
+      { "estado": "EN_REVISION", "fecha": "2026-10-06T12:00:00.000Z" }
+    ]
+  },
+  {
+    "id": 3, "estudianteId": 3, "tipo": "RECLAMO_NOTA", "descripcion": "Reclamo por la nota del segundo parcial de Bases de Datos",
+    "prioridad": "ALTA", "estado": "RESUELTA", "responsableId": 3,
+    "fechaAlta": "2026-10-10T14:00:00.000Z", "fechaLimite": "2026-10-15T14:00:00.000Z", "canal": "MAIL",
+    "historial": [
+      { "estado": "PENDIENTE", "fecha": "2026-10-10T14:00:00.000Z" },
+      { "estado": "EN_REVISION", "fecha": "2026-10-11T14:00:00.000Z" },
+      { "estado": "RESUELTA", "fecha": "2026-10-14T14:00:00.000Z" }
+    ]
+  },
+  {
+    "id": 4, "estudianteId": 4, "tipo": "CAMBIO_COMISION", "descripcion": "Cambio de comisión por superposición horaria con el trabajo",
+    "prioridad": "ALTA", "estado": "RECHAZADA", "responsableId": 2,
+    "fechaAlta": "2026-10-12T10:00:00.000Z", "fechaLimite": "2026-10-15T10:00:00.000Z", "canal": "WEB",
+    "historial": [
+      { "estado": "PENDIENTE", "fecha": "2026-10-12T10:00:00.000Z" },
+      { "estado": "EN_REVISION", "fecha": "2026-10-12T16:00:00.000Z" },
+      { "estado": "RECHAZADA", "fecha": "2026-10-13T10:00:00.000Z", "motivo": "La comisión de destino no tiene cupo disponible" }
+    ]
+  },
+  {
+    "id": 5, "estudianteId": 5, "tipo": "CERTIFICADO", "descripcion": "Certificado de materias aprobadas para una beca",
+    "prioridad": "MEDIA", "estado": "PENDIENTE", "responsableId": null,
+    "fechaAlta": "2026-10-20T11:00:00.000Z", "fechaLimite": "2026-10-22T11:00:00.000Z", "canal": "WEB",
+    "historial": [
+      { "estado": "PENDIENTE", "fecha": "2026-10-20T11:00:00.000Z" }
+    ]
+  },
+  {
+    "id": 6, "estudianteId": 1, "tipo": "EQUIVALENCIA", "descripcion": "Equivalencia de Inglés 1 con un certificado internacional",
+    "prioridad": "MEDIA", "estado": "PENDIENTE", "responsableId": 3,
+    "fechaAlta": "2026-10-28T09:00:00.000Z", "fechaLimite": "2026-11-17T09:00:00.000Z", "canal": "PRESENCIAL",
+    "historial": [
+      { "estado": "PENDIENTE", "fecha": "2026-10-28T09:00:00.000Z" }
+    ]
+  },
+  {
+    "id": 7, "estudianteId": 2, "tipo": "RECLAMO_NOTA", "descripcion": "Revisión de la corrección del trabajo práctico integrador",
+    "prioridad": "ALTA", "estado": "EN_REVISION", "responsableId": 3,
+    "fechaAlta": "2026-10-29T18:00:00.000Z", "fechaLimite": "2026-11-03T18:00:00.000Z", "canal": "WEB",
+    "historial": [
+      { "estado": "PENDIENTE", "fecha": "2026-10-29T18:00:00.000Z" },
+      { "estado": "EN_REVISION", "fecha": "2026-10-30T12:00:00.000Z" }
+    ]
+  },
+  {
+    "id": 8, "estudianteId": 4, "tipo": "CERTIFICADO", "descripcion": "Certificado de alumno regular para la obra social",
+    "prioridad": "BAJA", "estado": "PENDIENTE", "responsableId": null,
+    "fechaAlta": "2026-11-02T15:00:00.000Z", "fechaLimite": "2026-11-04T15:00:00.000Z", "canal": "WEB",
+    "historial": [
+      { "estado": "PENDIENTE", "fecha": "2026-11-02T15:00:00.000Z" }
+    ]
+  }
+]

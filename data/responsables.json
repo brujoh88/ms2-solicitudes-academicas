@@ -1,0 +1,6 @@
+[
+  { "id": 1, "nombre": "Carla Medina", "area": "BEDELIA", "activo": true },
+  { "id": 2, "nombre": "Diego Sosa", "area": "BEDELIA", "activo": true },
+  { "id": 3, "nombre": "Ana Paredes", "area": "DEPARTAMENTO_ACADEMICO", "activo": true },
+  { "id": 4, "nombre": "Raúl Benítez", "area": "DEPARTAMENTO_ACADEMICO", "activo": false }
+]

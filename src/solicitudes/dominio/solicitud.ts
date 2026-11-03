@@ -1,7 +1,8 @@
 import { DatosSolicitud, EntradaHistorial } from './datos';
 import { esCerrado, Estado, TRANSICIONES } from './estado';
-import { ErrorDeNegocio } from './errores';
+import { DatosInvalidos, ErrorDeNegocio } from './errores';
 import { CondicionesDeAtencion, FiltroSolicitudes, PedidoDeSolicitud } from './parametros';
+import { buscarTipo, TipoSolicitud } from './tipo-solicitud';
 import { CANAL_POR_DEFECTO, LARGO_MINIMO_DE_TEXTO, MILISEGUNDOS_POR_DIA, tieneLargoMinimo } from './reglas';
 
 /**
@@ -43,6 +44,16 @@ export class Solicitud {
 
   get tipo(): string {
     return this.datos.tipo;
+  }
+
+  /**
+   * Las reglas de su tipo. Si el dato guardado no corresponde a ningún tipo, los
+   * datos están corruptos: es una falla interna, no un error del usuario.
+   */
+  tipoDeSolicitud(): TipoSolicitud {
+    const tipo = buscarTipo(this.datos.tipo);
+    if (!tipo) throw new Error(`Tipo de solicitud desconocido en los datos: ${this.datos.tipo}`);
+    return tipo;
   }
 
   get estado(): Estado {
@@ -100,7 +111,7 @@ export class Solicitud {
     if (destino === Estado.EN_REVISION && this.datos.responsableId == null)
       throw new ErrorDeNegocio('No se puede revisar una solicitud sin responsable');
     if (destino === Estado.RECHAZADA && !tieneLargoMinimo(motivo))
-      throw new ErrorDeNegocio(
+      throw new DatosInvalidos(
         `Para rechazar hay que indicar un motivo de al menos ${LARGO_MINIMO_DE_TEXTO} caracteres`,
       );
 

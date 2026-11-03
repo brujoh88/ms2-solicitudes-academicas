@@ -1,21 +1,26 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus } from '@nestjs/common';
-import { Request, Response } from 'express';
-import { ErrorDeNegocio } from './dominio/errores';
+import { Response } from 'express';
+import { DatosInvalidos, ErrorDeNegocio, RecursoNoEncontrado } from './dominio/errores';
 
 /**
  * Único lugar donde un error de negocio se convierte en respuesta HTTP.
  *
- * Por ahora conserva el comportamiento de la versión inicial (el error en el
- * cuerpo con el código de éxito de la ruta), que es lo que fijan los tests de
- * caracterización. Corregirlo es un cambio de comportamiento visible y se hace
- * aparte, en la revisión de código.
+ * Corrección CR1 de la revisión: la versión inicial respondía 200/201 con el
+ * error en el cuerpo. Ahora cada tipo de error tiene su código.
  */
 @Catch(ErrorDeNegocio)
 export class ErroresDeNegocioFilter implements ExceptionFilter {
   catch(error: ErrorDeNegocio, host: ArgumentsHost): void {
-    const http = host.switchToHttp();
-    const pedido = http.getRequest<Request>();
-    const estado = pedido.method === 'POST' ? HttpStatus.CREATED : HttpStatus.OK;
-    http.getResponse<Response>().status(estado).json({ error: error.message });
+    host
+      .switchToHttp()
+      .getResponse<Response>()
+      .status(codigoPara(error))
+      .json({ error: error.message });
   }
+}
+
+export function codigoPara(error: ErrorDeNegocio): HttpStatus {
+  if (error instanceof RecursoNoEncontrado) return HttpStatus.NOT_FOUND;
+  if (error instanceof DatosInvalidos) return HttpStatus.BAD_REQUEST;
+  return HttpStatus.CONFLICT;
 }

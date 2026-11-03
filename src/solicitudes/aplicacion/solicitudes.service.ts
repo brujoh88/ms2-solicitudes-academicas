@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatosSolicitud, Responsable } from '../dominio/datos';
-import { ErrorDeNegocio } from '../dominio/errores';
+import { DatosInvalidos, ErrorDeNegocio, RecursoNoEncontrado } from '../dominio/errores';
 import { CondicionesDeAtencion, FiltroSolicitudes, PedidoDeSolicitud } from '../dominio/parametros';
 import { subirUnNivel } from '../dominio/prioridad';
 import {
@@ -52,7 +52,7 @@ export class SolicitudesService {
     const solicitud = this.cargar(id);
     solicitud.asegurarQueEsteAbierta();
     const responsable = this.responsableHabilitado(responsableId);
-    if (responsable.area !== buscarTipo(solicitud.tipo).area)
+    if (responsable.area !== solicitud.tipoDeSolicitud().area)
       throw new ErrorDeNegocio('El responsable no pertenece al area que atiende este tipo');
     this.verificarCupoDelResponsable(responsable, solicitud.id);
 
@@ -68,7 +68,7 @@ export class SolicitudesService {
 
   private cargar(id: number): Solicitud {
     const datos = this.solicitudes.buscarPorId(id);
-    if (!datos) throw new ErrorDeNegocio('No existe la solicitud');
+    if (!datos) throw new RecursoNoEncontrado('No existe la solicitud');
     return Solicitud.desde(datos);
   }
 
@@ -80,12 +80,12 @@ export class SolicitudesService {
 
   /** Valida el pedido y devuelve su tipo, que ya se sabe que existe. */
   private validarPedido(pedido: PedidoDeSolicitud): TipoSolicitud {
-    if (pedido.estudianteId === undefined) throw new ErrorDeNegocio('Falta el estudiante');
-    if (!pedido.tipo) throw new ErrorDeNegocio('Falta el tipo');
+    if (pedido.estudianteId === undefined) throw new DatosInvalidos('Falta el estudiante');
+    if (!pedido.tipo) throw new DatosInvalidos('Falta el tipo');
     const tipo = buscarTipo(pedido.tipo);
-    if (!tipo) throw new ErrorDeNegocio('Tipo invalido');
+    if (!tipo) throw new DatosInvalidos('Tipo invalido');
     if (!tieneLargoMinimo(pedido.descripcion))
-      throw new ErrorDeNegocio(
+      throw new DatosInvalidos(
         `La descripcion debe tener al menos ${LARGO_MINIMO_DE_TEXTO} caracteres`,
       );
     return tipo;
@@ -93,7 +93,7 @@ export class SolicitudesService {
 
   private verificarQueElEstudiantePuedaIniciarlo(estudianteId: number, tipo: TipoSolicitud): void {
     const estudiante = this.estudiantes.buscarPorId(estudianteId);
-    if (!estudiante) throw new ErrorDeNegocio('El estudiante no existe');
+    if (!estudiante) throw new DatosInvalidos('El estudiante no existe');
     if (estudiante.condicion !== Condicion.REGULAR && !tipo.admiteEstudiantesLibres)
       throw new ErrorDeNegocio('Solo los estudiantes regulares pueden iniciar este tramite');
   }
@@ -112,7 +112,7 @@ export class SolicitudesService {
 
   private responsableHabilitado(responsableId: number): Responsable {
     const responsable = this.responsables.buscarPorId(responsableId);
-    if (!responsable) throw new ErrorDeNegocio('El responsable no existe');
+    if (!responsable) throw new DatosInvalidos('El responsable no existe');
     if (!responsable.activo) throw new ErrorDeNegocio('El responsable no esta activo');
     return responsable;
   }

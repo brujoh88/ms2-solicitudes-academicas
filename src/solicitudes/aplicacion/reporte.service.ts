@@ -42,7 +42,7 @@ export class ReporteService {
   /** Cuántas veces aparece cada clave; las que no aparecen quedan en 0. */
   private contar(claves: string[], valores: string[]): Record<string, number> {
     const conteo = Object.fromEntries(claves.map((clave) => [clave, 0]));
-    for (const valor of valores) conteo[valor]++;
+    for (const valor of valores) conteo[valor] = (conteo[valor] ?? 0) + 1;
     return conteo;
   }
 

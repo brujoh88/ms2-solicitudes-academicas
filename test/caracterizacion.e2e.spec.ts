@@ -1,6 +1,11 @@
-// Tests de caracterizacion: registran como se comporta HOY el sistema, con sus
-// defectos incluidos, para poder refactorizar sin cambiar el comportamiento externo.
-// Si un refactoring rompe uno de estos tests, cambio algo que el usuario ve.
+// Tests de caracterizacion: registran el comportamiento externo del sistema.
+// Se escribieron antes del refactoring (tag etapa-diagnostico) y fijaron el
+// contrato que los cinco refactorings respetaron. scripts/comparar-versiones.sh
+// corre ESA version contra la inicial y la refactorizada.
+//
+// En la revision de codigo (CR1) se corrigieron a proposito los codigos HTTP de
+// error: los casos que antes decian "DEFECTO REGISTRADO" ahora esperan el codigo
+// correcto y estan marcados "CR1".
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as fs from 'fs';
@@ -8,47 +13,35 @@ import * as os from 'os';
 import * as path from 'path';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { DIRECTORIO_DATOS } from '../src/solicitudes/infraestructura/directorio-datos';
+import { Reloj } from '../src/solicitudes/puertos/reloj';
+import { RelojFijo } from './dobles/en-memoria';
 
 // "Ahora" fijo: el reporte calcula las vencidas contra la fecha actual.
 const AHORA = new Date('2026-11-03T12:00:00.000Z');
-const DATA = path.join(process.cwd(), 'data');
-let respaldo: string;
+// CR9: cada test trabaja sobre una copia de los datos de ejemplo en una carpeta
+// temporal, inyectada en lugar de ./data. Ya no se respaldan los datos reales
+// ni se falsea el reloj global del proceso.
+const DATOS_DE_EJEMPLO = path.join(process.cwd(), 'data');
+let DATA: string;
 let app: INestApplication;
 
-beforeAll(() => {
-  // El sistema lee y escribe ./data directamente: no hay forma de pasarle otro
-  // archivo, asi que se respalda el real y se restaura despues de cada test.
-  respaldo = fs.mkdtempSync(path.join(os.tmpdir(), 'solicitudes-'));
-  fs.cpSync(DATA, respaldo, { recursive: true });
-  jest.useFakeTimers({
-    now: AHORA,
-    doNotFake: [
-      'nextTick',
-      'setImmediate',
-      'clearImmediate',
-      'setTimeout',
-      'clearTimeout',
-      'setInterval',
-      'clearInterval',
-      'queueMicrotask',
-    ],
-  });
-});
-
 beforeEach(async () => {
-  const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'solicitudes-'));
+  fs.cpSync(DATOS_DE_EJEMPLO, DATA, { recursive: true });
+  const modulo = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(DIRECTORIO_DATOS)
+    .useValue(DATA)
+    .overrideProvider(Reloj)
+    .useValue(new RelojFijo(AHORA))
+    .compile();
   app = modulo.createNestApplication();
   await app.init();
 });
 
 afterEach(async () => {
   await app.close();
-  fs.cpSync(respaldo, DATA, { recursive: true });
-});
-
-afterAll(() => {
-  jest.useRealTimers();
-  fs.rmSync(respaldo, { recursive: true, force: true });
+  fs.rmSync(DATA, { recursive: true, force: true });
 });
 
 const leerSolicitudes = () =>
@@ -86,9 +79,9 @@ describe('Buscar y filtrar', () => {
     expect(res.body.estado).toBe('RECHAZADA');
   });
 
-  it('DEFECTO REGISTRADO: una solicitud inexistente responde 200 con un error en el cuerpo', async () => {
+  it('CR1: una solicitud inexistente responde 404 (antes 200)', async () => {
     const res = await request(app.getHttpServer()).get('/solicitudes/99');
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'No existe la solicitud' });
   });
 });
@@ -164,24 +157,27 @@ describe('Registrar solicitud', () => {
   });
 
   it.each([
-    [{ tipo: 'CERTIFICADO', descripcion: 'Descripcion valida' }, 'Falta el estudiante'],
-    [{ estudianteId: 1, descripcion: 'Descripcion valida' }, 'Falta el tipo'],
-    [{ estudianteId: 1, tipo: 'BECA', descripcion: 'Descripcion valida' }, 'Tipo invalido'],
+    [{ tipo: 'CERTIFICADO', descripcion: 'Descripcion valida' }, 400, 'Falta el estudiante'],
+    [{ estudianteId: 1, descripcion: 'Descripcion valida' }, 400, 'Falta el tipo'],
+    [{ estudianteId: 1, tipo: 'BECA', descripcion: 'Descripcion valida' }, 400, 'Tipo invalido'],
     [
       { estudianteId: 1, tipo: 'CERTIFICADO', descripcion: '  corta   ' },
+      400,
       'La descripcion debe tener al menos 10 caracteres',
     ],
     [
       { estudianteId: 99, tipo: 'CERTIFICADO', descripcion: 'Descripcion valida' },
+      400,
       'El estudiante no existe',
     ],
     [
       { estudianteId: 3, tipo: 'CERTIFICADO', descripcion: 'Descripcion valida' },
+      409,
       'Solo los estudiantes regulares pueden iniciar este tramite',
     ],
-  ])('DEFECTO REGISTRADO: rechaza %j con 201 y "%s"', async (cuerpo, error) => {
+  ])('CR1: rechaza %j con %i (antes 201) y "%s"', async (cuerpo, codigo, error) => {
     const res = await registrar(cuerpo);
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(codigo);
     expect(res.body).toEqual({ error });
     expect(leerSolicitudes()).toHaveLength(8);
   });
@@ -212,14 +208,14 @@ describe('Asignar responsable', () => {
   });
 
   it.each([
-    [5, 3, 'El responsable no pertenece al area que atiende este tipo'],
-    [5, 4, 'El responsable no esta activo'],
-    [5, 99, 'El responsable no existe'],
-    [1, 1, 'La solicitud ya esta cerrada'],
-    [99, 1, 'No existe la solicitud'],
-  ])('solicitud %i con responsable %i: "%s"', async (id, responsableId, error) => {
+    [5, 3, 409, 'El responsable no pertenece al area que atiende este tipo'],
+    [5, 4, 409, 'El responsable no esta activo'],
+    [5, 99, 400, 'El responsable no existe'],
+    [1, 1, 409, 'La solicitud ya esta cerrada'],
+    [99, 1, 404, 'No existe la solicitud'],
+  ])('CR1: solicitud %i con responsable %i responde %i (antes 200): "%s"', async (id, responsableId, codigo, error) => {
     const res = await asignar(id, responsableId);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(codigo);
     expect(res.body).toEqual({ error });
   });
 
@@ -283,6 +279,7 @@ describe('Cambiar estado', () => {
     [7, { estado: 'RECHAZADA', motivo: 'corto' }],
   ])('no rechaza la %i sin un motivo de 10 caracteres', async (id, cuerpo) => {
     const res = await cambiar(id, cuerpo);
+    expect(res.status).toBe(400);
     expect(res.body).toEqual({
       error: 'Para rechazar hay que indicar un motivo de al menos 10 caracteres',
     });
@@ -294,6 +291,7 @@ describe('Cambiar estado', () => {
     [4, 'PENDIENTE', 'RECHAZADA'],
   ])('no permite pasar la %i a %s desde %s', async (id, estado, desde) => {
     const res = await cambiar(id, { estado });
+    expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: `No se puede pasar de ${desde} a ${estado}` });
   });
 });

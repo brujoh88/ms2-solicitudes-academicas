@@ -1,19 +1,22 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
-import * as fs from 'fs';
+import { DirectorioEstudiantes, DirectorioResponsables } from './puertos/directorios';
+import { Reloj } from './puertos/reloj';
+import { RepositorioSolicitudes } from './puertos/repositorio-solicitudes';
 
 // Controlador de solicitudes academicas
 @Controller('solicitudes')
 export class SolicitudesController {
+  constructor(
+    private readonly solicitudes: RepositorioSolicitudes,
+    private readonly estudiantes: DirectorioEstudiantes,
+    private readonly responsables: DirectorioResponsables,
+    private readonly reloj: Reloj,
+  ) {}
+
   // listar solicitudes con filtros
   @Get()
   listar(@Query() q: any) {
-    let data = [];
-    try {
-      data = JSON.parse(fs.readFileSync('./data/solicitudes.json', 'utf-8'));
-    } catch (e) {
-      data = [];
-    }
-    let res = data;
+    let res: any[] = this.solicitudes.todas();
     if (q.estado) res = res.filter((s) => s.estado == q.estado);
     if (q.tipo) res = res.filter((s) => s.tipo == q.tipo);
     if (q.responsableId) res = res.filter((s) => s.responsableId == q.responsableId);
@@ -28,12 +31,7 @@ export class SolicitudesController {
   // reporte basico
   @Get('reporte')
   reporte() {
-    let data = [];
-    try {
-      data = JSON.parse(fs.readFileSync('./data/solicitudes.json', 'utf-8'));
-    } catch (e) {
-      data = [];
-    }
+    const data = this.solicitudes.todas();
     const r: any = {
       total: data.length,
       porEstado: { PENDIENTE: 0, EN_REVISION: 0, RESUELTA: 0, RECHAZADA: 0 },
@@ -50,7 +48,7 @@ export class SolicitudesController {
       if (
         s.estado != 'RESUELTA' &&
         s.estado != 'RECHAZADA' &&
-        new Date(s.fechaLimite).getTime() < new Date().getTime()
+        new Date(s.fechaLimite).getTime() < this.reloj.ahora().getTime()
       ) {
         r.vencidas.push(s.id);
       }
@@ -73,13 +71,7 @@ export class SolicitudesController {
 
   @Get(':id')
   uno(@Param('id') id: string) {
-    let data = [];
-    try {
-      data = JSON.parse(fs.readFileSync('./data/solicitudes.json', 'utf-8'));
-    } catch (e) {
-      data = [];
-    }
-    const s = data.find((x) => x.id == id);
+    const s = this.solicitudes.buscarPorId(Number(id));
     if (!s) return { error: 'No existe la solicitud' };
     return s;
   }
@@ -101,11 +93,7 @@ export class SolicitudesController {
       return { error: 'La descripcion debe tener al menos 10 caracteres' };
 
     // el estudiante tiene que existir
-    let ests = [];
-    try {
-      ests = JSON.parse(fs.readFileSync('./data/estudiantes.json', 'utf-8'));
-    } catch (e) {}
-    const est = ests.find((e) => e.id == b.estudianteId);
+    const est = this.estudiantes.buscarPorId(Number(b.estudianteId));
     if (!est) return { error: 'El estudiante no existe' };
     // los libres solo pueden reclamar notas
     if (est.condicion != 'REGULAR' && b.tipo != 'RECLAMO_NOTA')
@@ -149,15 +137,9 @@ export class SolicitudesController {
         break;
     }
 
-    let data = [];
-    try {
-      data = JSON.parse(fs.readFileSync('./data/solicitudes.json', 'utf-8'));
-    } catch (e) {
-      data = [];
-    }
-    const hoy = new Date();
+    const hoy = this.reloj.ahora();
     const s = this.crear(
-      data.length ? Math.max(...data.map((x) => x.id)) + 1 : 1,
+      this.solicitudes.siguienteId(),
       b.estudianteId,
       b.tipo,
       b.descripcion.trim(),
@@ -166,8 +148,7 @@ export class SolicitudesController {
       new Date(hoy.getTime() + dias * 86400000).toISOString(),
       b.canal || 'WEB',
     );
-    data.push(s);
-    fs.writeFileSync('./data/solicitudes.json', JSON.stringify(data, null, 2));
+    this.solicitudes.guardar(s);
     return s;
   }
 
@@ -190,22 +171,12 @@ export class SolicitudesController {
   // asignar un responsable
   @Put(':id/responsable')
   asignar(@Param('id') id: string, @Body() b: any) {
-    let data = [];
-    try {
-      data = JSON.parse(fs.readFileSync('./data/solicitudes.json', 'utf-8'));
-    } catch (e) {
-      data = [];
-    }
-    const s = data.find((x) => x.id == id);
+    const s = this.solicitudes.buscarPorId(Number(id));
     if (!s) return { error: 'No existe la solicitud' };
     if (s.estado == 'RESUELTA' || s.estado == 'RECHAZADA')
       return { error: 'La solicitud ya esta cerrada' };
 
-    let resps = [];
-    try {
-      resps = JSON.parse(fs.readFileSync('./data/responsables.json', 'utf-8'));
-    } catch (e) {}
-    const r = resps.find((x) => x.id == b.responsableId);
+    const r = this.responsables.buscarPorId(Number(b.responsableId));
     if (!r) return { error: 'El responsable no existe' };
     if (!r.activo) return { error: 'El responsable no esta activo' };
 
@@ -228,6 +199,7 @@ export class SolicitudesController {
     if (r.area != area) return { error: 'El responsable no pertenece al area que atiende este tipo' };
 
     // no mas de 5 abiertas por responsable
+    const data = this.solicitudes.todas();
     let c = 0;
     for (let i = 0; i < data.length; i++) {
       if (
@@ -240,20 +212,14 @@ export class SolicitudesController {
     if (c >= 5) return { error: 'El responsable ya tiene 5 solicitudes abiertas' };
 
     s.responsableId = r.id;
-    fs.writeFileSync('./data/solicitudes.json', JSON.stringify(data, null, 2));
+    this.solicitudes.guardar(s);
     return s;
   }
 
   // cambiar el estado
   @Put(':id/estado')
   cambiarEstado(@Param('id') id: string, @Body() b: any) {
-    let data = [];
-    try {
-      data = JSON.parse(fs.readFileSync('./data/solicitudes.json', 'utf-8'));
-    } catch (e) {
-      data = [];
-    }
-    const s = data.find((x) => x.id == id);
+    const s = this.solicitudes.buscarPorId(Number(id));
     if (!s) return { error: 'No existe la solicitud' };
     const nuevo = b.estado;
     let ok = false;
@@ -279,10 +245,10 @@ export class SolicitudesController {
     if (!ok) return { error: 'No se puede pasar de ' + s.estado + ' a ' + nuevo };
 
     s.estado = nuevo;
-    const h: any = { estado: nuevo, fecha: new Date().toISOString() };
+    const h: any = { estado: nuevo, fecha: this.reloj.ahora().toISOString() };
     if (b.motivo) h.motivo = b.motivo.trim();
     s.historial.push(h);
-    fs.writeFileSync('./data/solicitudes.json', JSON.stringify(data, null, 2));
+    this.solicitudes.guardar(s);
     return s;
   }
 }

@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "ts-node src/main.ts",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "test:cov": "jest --runInBand --coverage"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -29,12 +30,24 @@
     "typescript": "^5.7.3"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/main.ts"
+    ],
+    "coverageReporters": [
+      "text",
+      "text-summary"
+    ]
   }
 }

@@ -1,8 +1,13 @@
+import { Estado } from './estado';
+import { Prioridad } from './prioridad';
+import { Area } from './tipo-solicitud';
+import { Condicion } from './reglas';
+
 // Forma en que se guardan los datos. El dominio trabaja sobre estas estructuras
 // y la infraestructura decide dónde y cómo se persisten.
 
 export interface EntradaHistorial {
-  estado: string;
+  estado: Estado;
   fecha: string;
   motivo?: string;
 }
@@ -12,8 +17,8 @@ export interface DatosSolicitud {
   estudianteId: number;
   tipo: string;
   descripcion: string;
-  prioridad: string;
-  estado: string;
+  prioridad: Prioridad;
+  estado: Estado;
   responsableId: number | null;
   fechaAlta: string;
   fechaLimite: string;
@@ -25,12 +30,12 @@ export interface Estudiante {
   id: number;
   nombre: string;
   legajo: string;
-  condicion: string;
+  condicion: Condicion;
 }
 
 export interface Responsable {
   id: number;
   nombre: string;
-  area: string;
+  area: Area;
   activo: boolean;
 }

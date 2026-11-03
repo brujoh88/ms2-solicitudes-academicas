@@ -1,6 +1,8 @@
-import { DatosSolicitud } from './datos';
+import { DatosSolicitud, EntradaHistorial } from './datos';
+import { esCerrado, Estado, TRANSICIONES } from './estado';
 import { ErrorDeNegocio } from './errores';
 import { CondicionesDeAtencion, FiltroSolicitudes, PedidoDeSolicitud } from './parametros';
+import { CANAL_POR_DEFECTO, LARGO_MINIMO_DE_TEXTO, MILISEGUNDOS_POR_DIA, tieneLargoMinimo } from './reglas';
 
 /**
  * Una solicitud con su comportamiento. Lo que antes calculaba el controlador
@@ -26,13 +28,29 @@ export class Solicitud {
       tipo: pedido.tipo,
       descripcion: pedido.descripcion.trim(),
       prioridad: condiciones.prioridad,
-      estado: 'PENDIENTE',
+      estado: Estado.PENDIENTE,
       responsableId: null,
       fechaAlta,
       fechaLimite: condiciones.fechaLimite.toISOString(),
-      canal: pedido.canal || 'WEB',
-      historial: [{ estado: 'PENDIENTE', fecha: fechaAlta }],
+      canal: pedido.canal || CANAL_POR_DEFECTO,
+      historial: [{ estado: Estado.PENDIENTE, fecha: fechaAlta }],
     });
+  }
+
+  get id(): number {
+    return this.datos.id;
+  }
+
+  get tipo(): string {
+    return this.datos.tipo;
+  }
+
+  get estado(): Estado {
+    return this.datos.estado;
+  }
+
+  get responsableId(): number | null {
+    return this.datos.responsableId;
   }
 
   /** Indica si la solicitud cumple todos los criterios del filtro. */
@@ -47,42 +65,24 @@ export class Solicitud {
     );
   }
 
-  get id(): number {
-    return this.datos.id;
-  }
-
-  get tipo(): string {
-    return this.datos.tipo;
-  }
-
-  get estado(): string {
-    return this.datos.estado;
-  }
-
-  get responsableId(): number | null {
-    return this.datos.responsableId;
-  }
-
   estaCerrada(): boolean {
-    return this.datos.estado == 'RESUELTA' || this.datos.estado == 'RECHAZADA';
+    return esCerrado(this.datos.estado);
   }
 
   estaAbierta(): boolean {
-    return this.datos.estado == 'PENDIENTE' || this.datos.estado == 'EN_REVISION';
+    return !this.estaCerrada();
   }
 
   estaVencida(ahora: Date): boolean {
-    return !this.estaCerrada() && new Date(this.datos.fechaLimite).getTime() < ahora.getTime();
+    return this.estaAbierta() && new Date(this.datos.fechaLimite).getTime() < ahora.getTime();
   }
 
   /** Días entre el alta y la resolución, o `null` si no está resuelta. */
   diasDeResolucion(): number | null {
-    const resolucion = this.datos.historial.find((entrada) => entrada.estado == 'RESUELTA');
+    const resolucion = this.datos.historial.find((entrada) => entrada.estado === Estado.RESUELTA);
     if (!resolucion) return null;
-    return (
-      (new Date(resolucion.fecha).getTime() - new Date(this.datos.fechaAlta).getTime()) /
-      86400000
-    );
+    const alta = new Date(this.datos.fechaAlta).getTime();
+    return (new Date(resolucion.fecha).getTime() - alta) / MILISEGUNDOS_POR_DIA;
   }
 
   asegurarQueEsteAbierta(): void {
@@ -94,40 +94,23 @@ export class Solicitud {
   }
 
   cambiarEstado(nuevo: string, motivo: string | undefined, ahora: Date): void {
-    let ok = false;
-    if (this.datos.estado == 'PENDIENTE') {
-      if (nuevo == 'EN_REVISION') {
-        if (this.datos.responsableId == null)
-          throw new ErrorDeNegocio('No se puede revisar una solicitud sin responsable');
-        ok = true;
-      } else if (nuevo == 'RECHAZADA') {
-        this.validarMotivoDeRechazo(motivo);
-        ok = true;
-      }
-    } else if (this.datos.estado == 'EN_REVISION') {
-      if (nuevo == 'RESUELTA') {
-        ok = true;
-      } else if (nuevo == 'RECHAZADA') {
-        this.validarMotivoDeRechazo(motivo);
-        ok = true;
-      }
-    }
-    if (!ok) throw new ErrorDeNegocio('No se puede pasar de ' + this.datos.estado + ' a ' + nuevo);
+    const destino = nuevo as Estado;
+    if (!TRANSICIONES[this.datos.estado].includes(destino))
+      throw new ErrorDeNegocio(`No se puede pasar de ${this.datos.estado} a ${nuevo}`);
+    if (destino === Estado.EN_REVISION && this.datos.responsableId == null)
+      throw new ErrorDeNegocio('No se puede revisar una solicitud sin responsable');
+    if (destino === Estado.RECHAZADA && !tieneLargoMinimo(motivo))
+      throw new ErrorDeNegocio(
+        `Para rechazar hay que indicar un motivo de al menos ${LARGO_MINIMO_DE_TEXTO} caracteres`,
+      );
 
-    this.datos.estado = nuevo;
-    const entrada: any = { estado: nuevo, fecha: ahora.toISOString() };
+    this.datos.estado = destino;
+    const entrada: EntradaHistorial = { estado: destino, fecha: ahora.toISOString() };
     if (motivo) entrada.motivo = motivo.trim();
     this.datos.historial.push(entrada);
   }
 
   aDatos(): DatosSolicitud {
     return structuredClone(this.datos);
-  }
-
-  private validarMotivoDeRechazo(motivo: string | undefined): void {
-    if (!motivo || motivo.trim().length < 10)
-      throw new ErrorDeNegocio(
-        'Para rechazar hay que indicar un motivo de al menos 10 caracteres',
-      );
   }
 }

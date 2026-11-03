@@ -1,3 +1,6 @@
+import { Estado } from './estado';
+import { Prioridad } from './prioridad';
+
 // Objetos de parámetros: agrupan datos que siempre viajan juntos y les ponen
 // nombre, en lugar de pasarlos sueltos y por posición.
 
@@ -12,14 +15,14 @@ export interface PedidoDeSolicitud {
 
 /** Cómo se va a atender: lo decide el sistema a partir del pedido. */
 export interface CondicionesDeAtencion {
-  prioridad: string;
+  prioridad: Prioridad;
   fechaAlta: Date;
   fechaLimite: Date;
 }
 
 /** Criterios de búsqueda; los que no vienen no filtran. */
 export interface FiltroSolicitudes {
-  estado?: string;
+  estado?: Estado;
   tipo?: string;
   responsableId?: number;
   estudianteId?: number;

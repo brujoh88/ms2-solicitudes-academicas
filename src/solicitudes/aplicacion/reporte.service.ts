@@ -1,7 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { Estado } from '../dominio/estado';
 import { Solicitud } from '../dominio/solicitud';
+import { TIPOS_DE_SOLICITUD } from '../dominio/tipo-solicitud';
 import { Reloj } from '../puertos/reloj';
 import { LectorSolicitudes } from '../puertos/repositorio-solicitudes';
+
+export interface Reporte {
+  total: number;
+  porEstado: Record<string, number>;
+  porTipo: Record<string, number>;
+  vencidas: number[];
+  promedioDiasResolucion: number | null;
+}
 
 /**
  * El reporte solo consulta: depende de LectorSolicitudes y no del repositorio
@@ -14,21 +24,26 @@ export class ReporteService {
     private readonly reloj: Reloj,
   ) {}
 
-  generar() {
+  generar(): Reporte {
     const solicitudes = this.solicitudes.todas().map((datos) => Solicitud.desde(datos));
     const ahora = this.reloj.ahora();
-    const r: any = {
+    return {
       total: solicitudes.length,
-      porEstado: { PENDIENTE: 0, EN_REVISION: 0, RESUELTA: 0, RECHAZADA: 0 },
-      porTipo: { CERTIFICADO: 0, EQUIVALENCIA: 0, CAMBIO_COMISION: 0, RECLAMO_NOTA: 0 },
+      porEstado: this.contar(Object.values(Estado), solicitudes.map((s) => s.estado)),
+      porTipo: this.contar(
+        TIPOS_DE_SOLICITUD.map((tipo) => tipo.codigo),
+        solicitudes.map((s) => s.tipo),
+      ),
       vencidas: solicitudes.filter((s) => s.estaVencida(ahora)).map((s) => s.id),
       promedioDiasResolucion: this.promedioDiasResolucion(solicitudes),
     };
-    for (const s of solicitudes) {
-      r.porEstado[s.estado]++;
-      r.porTipo[s.tipo]++;
-    }
-    return r;
+  }
+
+  /** Cuántas veces aparece cada clave; las que no aparecen quedan en 0. */
+  private contar(claves: string[], valores: string[]): Record<string, number> {
+    const conteo = Object.fromEntries(claves.map((clave) => [clave, 0]));
+    for (const valor of valores) conteo[valor]++;
+    return conteo;
   }
 
   private promedioDiasResolucion(solicitudes: Solicitud[]): number | null {

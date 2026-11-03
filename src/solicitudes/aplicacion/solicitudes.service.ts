@@ -2,7 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { DatosSolicitud, Responsable } from '../dominio/datos';
 import { ErrorDeNegocio } from '../dominio/errores';
 import { CondicionesDeAtencion, FiltroSolicitudes, PedidoDeSolicitud } from '../dominio/parametros';
+import { subirUnNivel } from '../dominio/prioridad';
+import {
+  Condicion,
+  LARGO_MINIMO_DE_TEXTO,
+  MAXIMO_ABIERTAS_POR_RESPONSABLE,
+  MILISEGUNDOS_POR_DIA,
+  tieneLargoMinimo,
+} from '../dominio/reglas';
 import { Solicitud } from '../dominio/solicitud';
+import { buscarTipo, TipoSolicitud } from '../dominio/tipo-solicitud';
 import { DirectorioEstudiantes, DirectorioResponsables } from '../puertos/directorios';
 import { Reloj } from '../puertos/reloj';
 import { RepositorioSolicitudes } from '../puertos/repositorio-solicitudes';
@@ -28,13 +37,13 @@ export class SolicitudesService {
   }
 
   registrar(pedido: PedidoDeSolicitud): DatosSolicitud {
-    this.validarPedido(pedido);
-    this.verificarQueElEstudiantePuedaIniciarlo(pedido.estudianteId, pedido.tipo);
+    const tipo = this.validarPedido(pedido);
+    this.verificarQueElEstudiantePuedaIniciarlo(pedido.estudianteId, tipo);
 
     const solicitud = Solicitud.crear(
       this.solicitudes.siguienteId(),
       pedido,
-      this.condicionesDeAtencion(pedido),
+      this.condicionesDeAtencion(pedido, tipo),
     );
     return this.guardar(solicitud);
   }
@@ -43,7 +52,7 @@ export class SolicitudesService {
     const solicitud = this.cargar(id);
     solicitud.asegurarQueEsteAbierta();
     const responsable = this.responsableHabilitado(responsableId);
-    if (responsable.area != this.areaQueAtiende(solicitud.tipo))
+    if (responsable.area !== buscarTipo(solicitud.tipo).area)
       throw new ErrorDeNegocio('El responsable no pertenece al area que atiende este tipo');
     this.verificarCupoDelResponsable(responsable, solicitud.id);
 
@@ -69,82 +78,36 @@ export class SolicitudesService {
     return datos;
   }
 
-  private validarPedido(pedido: PedidoDeSolicitud): void {
+  /** Valida el pedido y devuelve su tipo, que ya se sabe que existe. */
+  private validarPedido(pedido: PedidoDeSolicitud): TipoSolicitud {
     if (pedido.estudianteId === undefined) throw new ErrorDeNegocio('Falta el estudiante');
     if (!pedido.tipo) throw new ErrorDeNegocio('Falta el tipo');
-    if (
-      pedido.tipo != 'CERTIFICADO' &&
-      pedido.tipo != 'EQUIVALENCIA' &&
-      pedido.tipo != 'CAMBIO_COMISION' &&
-      pedido.tipo != 'RECLAMO_NOTA'
-    )
-      throw new ErrorDeNegocio('Tipo invalido');
-    if (!pedido.descripcion || pedido.descripcion.trim().length < 10)
-      throw new ErrorDeNegocio('La descripcion debe tener al menos 10 caracteres');
+    const tipo = buscarTipo(pedido.tipo);
+    if (!tipo) throw new ErrorDeNegocio('Tipo invalido');
+    if (!tieneLargoMinimo(pedido.descripcion))
+      throw new ErrorDeNegocio(
+        `La descripcion debe tener al menos ${LARGO_MINIMO_DE_TEXTO} caracteres`,
+      );
+    return tipo;
   }
 
-  private condicionesDeAtencion(pedido: PedidoDeSolicitud): CondicionesDeAtencion {
-    const fechaAlta = this.reloj.ahora();
-    return {
-      prioridad: this.calcularPrioridad(pedido.tipo, pedido.urgente),
-      fechaAlta,
-      fechaLimite: new Date(fechaAlta.getTime() + this.plazoEnDias(pedido.tipo) * 86400000),
-    };
-  }
-
-  private verificarQueElEstudiantePuedaIniciarlo(estudianteId: number, tipo: string): void {
+  private verificarQueElEstudiantePuedaIniciarlo(estudianteId: number, tipo: TipoSolicitud): void {
     const estudiante = this.estudiantes.buscarPorId(estudianteId);
     if (!estudiante) throw new ErrorDeNegocio('El estudiante no existe');
-    if (estudiante.condicion != 'REGULAR' && tipo != 'RECLAMO_NOTA')
+    if (estudiante.condicion !== Condicion.REGULAR && !tipo.admiteEstudiantesLibres)
       throw new ErrorDeNegocio('Solo los estudiantes regulares pueden iniciar este tramite');
   }
 
-  private calcularPrioridad(tipo: string, urgente: boolean): string {
-    let prioridad;
-    switch (tipo) {
-      case 'RECLAMO_NOTA':
-        prioridad = 'ALTA';
-        break;
-      case 'CAMBIO_COMISION':
-        prioridad = 'ALTA';
-        break;
-      case 'EQUIVALENCIA':
-        prioridad = 'MEDIA';
-        break;
-      default:
-        prioridad = 'BAJA';
-    }
-    if (urgente) {
-      if (prioridad == 'BAJA') prioridad = 'MEDIA';
-      else if (prioridad == 'MEDIA') prioridad = 'ALTA';
-    }
-    return prioridad;
-  }
-
-  private plazoEnDias(tipo: string): number {
-    switch (tipo) {
-      case 'RECLAMO_NOTA':
-        return 5;
-      case 'CAMBIO_COMISION':
-        return 3;
-      case 'EQUIVALENCIA':
-        return 20;
-      case 'CERTIFICADO':
-        return 2;
-    }
-  }
-
-  private areaQueAtiende(tipo: string): string {
-    switch (tipo) {
-      case 'CERTIFICADO':
-        return 'BEDELIA';
-      case 'CAMBIO_COMISION':
-        return 'BEDELIA';
-      case 'EQUIVALENCIA':
-        return 'DEPARTAMENTO_ACADEMICO';
-      case 'RECLAMO_NOTA':
-        return 'DEPARTAMENTO_ACADEMICO';
-    }
+  private condicionesDeAtencion(
+    pedido: PedidoDeSolicitud,
+    tipo: TipoSolicitud,
+  ): CondicionesDeAtencion {
+    const fechaAlta = this.reloj.ahora();
+    return {
+      prioridad: pedido.urgente ? subirUnNivel(tipo.prioridadBase) : tipo.prioridadBase,
+      fechaAlta,
+      fechaLimite: new Date(fechaAlta.getTime() + tipo.plazoEnDias * MILISEGUNDOS_POR_DIA),
+    };
   }
 
   private responsableHabilitado(responsableId: number): Responsable {
@@ -160,9 +123,11 @@ export class SolicitudesService {
       .map((datos) => Solicitud.desde(datos))
       .filter(
         (otra) =>
-          otra.responsableId == responsable.id && otra.estaAbierta() && otra.id != solicitudId,
+          otra.responsableId === responsable.id && otra.estaAbierta() && otra.id !== solicitudId,
       );
-    if (abiertas.length >= 5)
-      throw new ErrorDeNegocio('El responsable ya tiene 5 solicitudes abiertas');
+    if (abiertas.length >= MAXIMO_ABIERTAS_POR_RESPONSABLE)
+      throw new ErrorDeNegocio(
+        `El responsable ya tiene ${MAXIMO_ABIERTAS_POR_RESPONSABLE} solicitudes abiertas`,
+      );
   }
 }
